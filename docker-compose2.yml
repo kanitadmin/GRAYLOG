@@ -1,24 +1,25 @@
-version: "3.8"
+version: '3'
 
 services:
+# MongoDB: https://hub.docker.com/_/mongo/
   mongodb:
-    environment:
-      TZ: "Asia/Bangkok"
-    image: "mongo:6.0"
+    image: "mongo:7.0"
     volumes:
       - "mongodb_data:/data/db"
     restart: "on-failure"
 
   opensearch:
-    image: "opensearchproject/opensearch:2.5.0"
+    image: "opensearchproject/opensearch:2.13.0"
     environment:
-      - "TZ=Asia/Bangkok"
       - "OPENSEARCH_JAVA_OPTS=-Xms4g -Xmx4g"
       - "bootstrap.memory_lock=true"
       - "discovery.type=single-node"
       - "action.auto_create_index=false"
       - "plugins.security.ssl.http.enabled=false"
       - "plugins.security.disabled=true"
+      # Can generate a password for `OPENSEARCH_INITIAL_ADMIN_PASSWORD` using a linux device via:
+      # tr -dc A-Z-a-z-0-9_@#%^-_=+ < /dev/urandom  | head -c${1:-32}
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=+_8r#wliY3Pv5-HMIf4qzXImYzZf-M=M
     ulimits:
       memlock:
         hard: -1
@@ -26,63 +27,57 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-    volumes:
-      - "os_data:/usr/share/opensearch/data"
     restart: "on-failure"
 
+  # Graylog: https://hub.docker.com/r/graylog/graylog/
   graylog:
     hostname: "server"
-    image: "${GRAYLOG_VERSION}"
+    image: "graylog/graylog:6.0"
+    # To install Graylog Open: "graylog/graylog:6.0.0"
     depends_on:
-      opensearch:
-        condition: "service_started"
-      mongodb:
-        condition: "service_started"
-    entrypoint: "/usr/bin/tini -- wait-for-it opensearch:9200 --  /docker-entrypoint.sh"
+      - mongodb:
+          condition: "service_started"
+      - opensearch
+    entrypoint: "/usr/bin/tini -- wait-for-it elasticsearch:9200 --  /docker-entrypoint.sh"
     environment:
-      TZ: "Asia/Bangkok"
-      GRAYLOG_ROOT_TIMEZONE: "Asia/Bangkok"
-      GRAYLOG_ALLOW_LEADING_WILDCARD_SEARCHES: "true"
-      GRAYLOG_NODE_ID_FILE: "/usr/share/graylog/data/config/node-id"
-      GRAYLOG_PASSWORD_SECRET: "${GRAYLOG_PASSWORD_SECRET}"
-      GRAYLOG_ROOT_PASSWORD_SHA2: "${GRAYLOG_ROOT_PASSWORD_SHA2}"
-      GRAYLOG_HTTP_BIND_ADDRESS: "0.0.0.0:9000"
-      GRAYLOG_HTTP_EXTERNAL_URI: "http://localhost:9000/"
-      GRAYLOG_ELASTICSEARCH_HOSTS: "http://opensearch:9200"
-      GRAYLOG_MONGODB_URI: "mongodb://mongodb:27017/graylog"
-      GRAYLOG_MESSAGE_JOURNAL_MAX_SIZE: "10gb"
-      GRAYLOG_TRANSPORT_EMAIL_ENABLED: "true"
-      GRAYLOG_TRANSPORT_EMAIL_HOSTNAME: "${GRAYLOG_TRANSPORT_EMAIL_HOSTNAME}"
-      GRAYLOG_TRANSPORT_EMAIL_PORT: 587
-      GRAYLOG_TRANSPORT_EMAIL_USE_AUTH: "true"
-      GRAYLOG_TRANSPORT_EMAIL_USE_TLS: "true"
-      GRAYLOG_TRANSPORT_EMAIL_USE_SSL: "false"
-      GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME: "${GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME}"
-      GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD: "${GRAYLOG_TRANSPORT_EMAIL_AUTH_PASSWORD}"
-      GRAYLOG_TRANSPORT_EMAIL_SUBJECT_PREFIX: "[GRAYLOG]"
-      GRAYLOG_TRANSPORT_EMAIL_FROM_EMAIL: "${GRAYLOG_TRANSPORT_EMAIL_AUTH_USERNAME}"
+    - GRAYLOG_NODE_ID_FILE= "/usr/share/graylog/data/config/node-id"
+    - GRAYLOG_HTTP_BIND_ADDRESS= "0.0.0.0:9000"
+    - GRAYLOG_ELASTICSEARCH_HOSTS= "http://opensearch:9200"
+    - GRAYLOG_MONGODB_URI= "mongodb://mongodb:27017/graylog"
+    # To make reporting (headless_shell) work inside a Docker container
+    - GRAYLOG_REPORT_DISABLE_SANDBOX: "true"
+    # CHANGE ME (must be at least 16 characters)!
+    - GRAYLOG_PASSWORD_SECRET= "somepasswordpepper"
+    # Password: "admin"
+    - GRAYLOG_ROOT_PASSWORD_SHA2= "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+    - GRAYLOG_HTTP_EXTERNAL_URI= "http://127.0.0.1:9000/"
     ports:
-    - "5044:5044/tcp"   # Beats
-    - "5140:5140/udp"   # Syslog
-    - "5140:5140/tcp"   # Syslog
-    - "5555:5555/tcp"   # RAW TCP
-    - "5555:5555/udp"   # RAW TCP
-    - "9000:9000/tcp"   # Server API
-    - "12201:12201/tcp" # GELF TCP
-    - "12201:12201/udp" # GELF UDP
-    - "13301:13301/tcp" # Forwarder data
-    - "13302:13302/tcp" # Forwarder config
-    volumes:
-      - "graylog_data:/usr/share/graylog/data/data"
-      - "graylog_journal:/usr/share/graylog/data/journal"
-    restart: "on-failure"
+      # Graylog web interface and REST API
+      - "9000:9000/tcp"
+      # Beats
+      - "5044:5044/tcp"
+      # Syslog TCP
+      - "5140:5140/tcp"
+      # Syslog UDP
+      - "5140:5140/udp"
+      # GELF TCP
+      - "12201:12201/tcp"
+      # GELF UDP
+      - "12201:12201/udp"
+      # Forwarder data
+      - "13301:13301/tcp"
+      # Forwarder config
+      - "13302:13302/tcp"
+      volumes:
+          - "graylog_data:/usr/share/graylog/data/data"
+          - "graylog_journal:/usr/share/graylog/data/journal"
+      restart: "on-failure"
 
 networks:
-  default:
-    name: graylog
-
+  graylog:
+    driver: "bridge"
 volumes:
-  mongodb_data:
+  mongo_data:
   os_data:
   graylog_data:
   graylog_journal:
