@@ -14,7 +14,7 @@ volumes:
 services:
   # Graylog stores configuration in MongoDB
   mongo:
-    image: mongo:7.0
+    image: mongo:6
     container_name: mongodb
     environment:
       TZ: "Asia/Bangkok"
@@ -26,7 +26,7 @@ services:
 
   # The logs themselves are stored in Opensearch
   opensearch:
-    image: opensearchproject/opensearch:2.13.0
+    image: opensearchproject/opensearch:2
     container_name: opensearch
     environment:
       - "TZ=Asia/Bangkok"
