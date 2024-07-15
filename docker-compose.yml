@@ -46,8 +46,8 @@ services:
       nofile:
         soft: 1048576
         hard: 1048576
-    ports:
-      - 9200:9200/tcp
+#    ports:
+#      - 9200:9200/tcp
     networks:
       - graynet
     restart: unless-stopped
