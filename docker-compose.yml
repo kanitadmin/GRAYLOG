@@ -44,8 +44,8 @@ services:
         soft: -1
         hard: -1
       nofile:
-        soft: 65536
-        hard: 65536
+        soft: 1048576
+        hard: 1048576
     ports:
       - 9200:9200/tcp
     networks:
